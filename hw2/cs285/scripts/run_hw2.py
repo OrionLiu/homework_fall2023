@@ -6,7 +6,7 @@ from cs285.agents.pg_agent import PGAgent
 import os
 import time
 
-import gym
+import gymnasium as gym
 import numpy as np
 import torch
 from cs285.infrastructure import pytorch_util as ptu
@@ -19,6 +19,7 @@ MAX_NVIDEO = 2
 
 
 def run_training_loop(args):
+    '''定义主循环函数'''
     logger = Logger(args.logdir)
 
     # set random seeds
@@ -28,17 +29,16 @@ def run_training_loop(args):
 
     # make the gym environment
     env = gym.make(args.env_name, render_mode=None)
-    discrete = isinstance(env.action_space, gym.spaces.Discrete)
+    discrete = isinstance(env.action_space, gym.spaces.Discrete)#检查动作空间是否是离散的
 
     # add action noise, if needed
     if args.action_noise_std > 0:
         assert not discrete, f"Cannot use --action_noise_std for discrete environment {args.env_name}"
-        env = ActionNoiseWrapper(env, args.seed, args.action_noise_std)
+        env = ActionNoiseWrapper(env, args.seed, args.action_noise_std)#每次东顾总执行添加高斯噪声
+    max_ep_len = args.ep_len or env.spec.max_episode_steps#每回合最大步长数
 
-    max_ep_len = args.ep_len or env.spec.max_episode_steps
-
-    ob_dim = env.observation_space.shape[0]
-    ac_dim = env.action_space.n if discrete else env.action_space.shape[0]
+    ob_dim = env.observation_space.shape[0]#观测空间的维度是向量的维度
+    ac_dim = env.action_space.n if discrete else env.action_space.shape[0]#动作空间的维度，离散空间是动作的数量
 
     # simulation timestep, will be used for video saving
     if hasattr(env, "model"):
@@ -70,7 +70,7 @@ def run_training_loop(args):
         print(f"\n********** Iteration {itr} ************")
         # TODO: sample `args.batch_size` transitions using utils.sample_trajectories
         # make sure to use `max_ep_len`
-        trajs, envsteps_this_batch = None, None  # TODO
+        trajs, envsteps_this_batch = utils.sample_trajectories(env,agent.actor,args.batch_size,max_ep_len)  # TODO
         total_envsteps += envsteps_this_batch
 
         # trajs should be a list of dictionaries of NumPy arrays, where each dictionary corresponds to a trajectory.
@@ -78,7 +78,7 @@ def run_training_loop(args):
         trajs_dict = {k: [traj[k] for traj in trajs] for k in trajs[0]}
 
         # TODO: train the agent using the sampled trajectories and the agent's update function
-        train_info: dict = None
+        train_info: dict = agent.update(obs=trajs_dict['observation'],actions=trajs_dict['action'],rewards=trajs_dict['reward'],terminals=trajs_dict['terminal'])
 
         if itr % args.scalar_log_freq == 0:
             # save eval metrics

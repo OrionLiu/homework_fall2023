@@ -8,7 +8,7 @@ Functions to edit:
 import pickle
 import os
 import time
-import gym
+import gymnasium as gym
 
 import numpy as np
 import torch
@@ -25,7 +25,7 @@ from cs285.policies.loaded_gaussian_policy import LoadedGaussianPolicy
 MAX_NVIDEO = 2
 MAX_VIDEO_LEN = 40  # we overwrite this in the code below
 
-MJ_ENV_NAMES = ["Ant-v4", "Walker2d-v4", "HalfCheetah-v4", "Hopper-v4"]
+MJ_ENV_NAMES = ["Ant-v4", "Walker2d-v4", "HalfCheetah-v4", "Hopper-v4"]#支持的mujoco环境名称
 
 
 def run_training_loop(params):
@@ -36,6 +36,7 @@ def run_training_loop(params):
     Args:
         params: experiment parameters
     """
+    '''主要是负责执行行为克隆，模仿专家行为训练代理'''
 
     #############
     ## INIT
@@ -62,13 +63,14 @@ def run_training_loop(params):
     #############
 
     # Make the gym environment
-    env = gym.make(params['env_name'], render_mode=None)
+    env = gym.make(params['env_name'], render_mode=None)#使用gym创建化境
     env.reset(seed=seed)
 
     # Maximum length for episodes
     params['ep_len'] = params['ep_len'] or env.spec.max_episode_steps
     MAX_VIDEO_LEN = params['ep_len']
 
+    #断言：确保环境的动作空间是连续的
     assert isinstance(env.action_space, gym.spaces.Box), "Environment must be continuous"
     # Observation and action sizes
     ob_dim = env.observation_space.shape[0]
@@ -132,7 +134,7 @@ def run_training_loop(params):
             # TODO: collect `params['batch_size']` transitions
             # HINT: use utils.sample_trajectories
             # TODO: implement missing parts of utils.sample_trajectory
-            paths, envsteps_this_batch = TODO
+            paths, envsteps_this_batch = utils.sample_trajectories(env,actor,params['batch_size'],MAX_VIDEO_LEN)
 
             # relabel the collected obs with actions from a provided expert policy
             if params['do_dagger']:
@@ -141,7 +143,8 @@ def run_training_loop(params):
                 # TODO: relabel collected obsevations (from our policy) with labels from expert policy
                 # HINT: query the policy (using the get_action function) with paths[i]["observation"]
                 # and replace paths[i]["action"] with these expert labels
-                paths = TODO
+                for path in paths:
+                    path["action"] = expert_policy.get_action(path["observation"])
 
         total_envsteps += envsteps_this_batch
         # add collected data to replay buffer
@@ -151,13 +154,16 @@ def run_training_loop(params):
         print('\nTraining agent using sampled data from replay buffer...')
         training_logs = []
         for _ in range(params['num_agent_train_steps_per_iter']):
+            #神经网络进行多少次梯度更新
 
           # TODO: sample some data from replay_buffer
           # HINT1: how much data = params['train_batch_size']
           # HINT2: use np.random.permutation to sample random indices
           # HINT3: return corresponding data points from each array (i.e., not different indices from each array)
           # for imitation learning, we only need observations and actions.  
-          ob_batch, ac_batch = TODO
+        #   ob_batch, ac_batch = replay_buffer.sample_random_data(params['train_batch_size'])
+          idx = np.random.permutation(len(replay_buffer))[:params['train_batch_size']]
+          ob_batch,ac_batch = replay_buffer.obs[idx],replay_buffer.acs[idx]
 
           # use the sampled data to train an agent
           train_log = actor.update(ob_batch, ac_batch)

@@ -2,7 +2,7 @@ from collections import OrderedDict
 import numpy as np
 import copy
 from cs285.networks.policies import MLPPolicy
-import gym
+import gymnasium as gym
 import cv2
 from cs285.infrastructure import pytorch_util as ptu
 from typing import Dict, Tuple, List
@@ -15,7 +15,7 @@ def sample_trajectory(
     env: gym.Env, policy: MLPPolicy, max_length: int, render: bool = False
 ) -> Dict[str, np.ndarray]:
     """Sample a rollout in the environment from a policy."""
-    ob = env.reset()
+    ob,info = env.reset()
     obs, acs, rewards, next_obs, terminals, image_obs = [], [], [], [], [], []
     steps = 0
     while True:
@@ -30,14 +30,15 @@ def sample_trajectory(
             )
 
         # TODO use the most recent ob and the policy to decide what to do
-        ac: np.ndarray = None
+        ac: np.ndarray = policy.get_action(ob)
+        ac = ac[0]
 
         # TODO: use that action to take a step in the environment
-        next_ob, rew, done, _ = None, None, None, None
+        next_ob, rew, done,_ , _ = env.step(ac)
 
         # TODO rollout can end due to done, or due to max_length
         steps += 1
-        rollout_done: bool = None
+        rollout_done: bool = done or steps >= max_length
 
         # record result of taking that action
         obs.append(ob)
